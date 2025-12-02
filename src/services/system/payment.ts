@@ -81,6 +81,34 @@ function updateAlipayConfig(data: any) {
   });
 }
 
+// 对账相关
+function runReconcile(data: any) {
+  return request('/api/v1/admin/payments/reconcile/run', {
+    method: 'POST',
+    data,
+  });
+}
+
+function listUnmatched() {
+  return request('/api/v1/admin/payments/reconcile/unmatched', {
+    method: 'GET',
+  });
+}
+
+function exportUnmatched() {
+  return request('/api/v1/admin/payments/reconcile/export', {
+    method: 'GET',
+    responseType: 'blob',
+  });
+}
+
+function manualMark(data: any) {
+  return request('/api/v1/admin/payments/reconcile/mark', {
+    method: 'POST',
+    data,
+  });
+}
+
 export const paymentApi = {
   getPaymentMethodList,
   createPaymentMethod,
@@ -90,4 +118,9 @@ export const paymentApi = {
   fetchPayPalClientId,
   requestPayPalPayment,
   updateAlipayConfig,
+  // reconcile
+  runReconcile,
+  listUnmatched,
+  exportUnmatched,
+  manualMark,
 };

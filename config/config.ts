@@ -25,6 +25,10 @@ export default defineConfig({
   deadCode: {},
   access: {},
   model: {},
+  // Enable DVA models (Umi/DVA style state management)
+  dva: {
+    immer: { enabled: true },
+  },
   initialState: {},
   request: {},
   layout: {

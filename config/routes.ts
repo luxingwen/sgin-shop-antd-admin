@@ -122,6 +122,11 @@ export default [
             path: '/system/pay/paypal-test',
             component: './system/paypal/test-pay',
           },
+          {
+            name: '支付对账',
+            path: '/system/pay/reconcile',
+            component: './system/payment/reconcile',
+          },
         ],
       },
       {
@@ -137,6 +142,11 @@ export default [
             name: '操作日志',
             path: '/system/log/operation',
             component: './system/log/operation',
+          },
+          {
+            name: '售后管理',
+            path: 'order/return',
+            component: './return',
           },
         ],
       },
@@ -198,7 +208,13 @@ export default [
         name: '菜单管理（绑定api）',
         path: '/system/menu/bindapi/:menuid',
         component: './system/menu/bind-api',
+
         hideInMenu: true,
+      },
+      {
+        name: '服务管理',
+        path: '/system/server',
+        component: './system/server',
       },
 
       {

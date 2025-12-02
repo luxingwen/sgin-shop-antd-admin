@@ -9,9 +9,9 @@ const { Option } = Select;
 const CurrencySelect = ({ value, onChange }) => {
   const [currencies, setCurrencies] = useState<CurrencyData[]>([]);
   const [loading, setLoading] = useState(false);
+  const { getOptions } = useCurrency();
 
   useEffect(() => {
-    const { getOptions } = useCurrency();
     const fetchCurrencies = async () => {
       setLoading(true);
       try {
@@ -25,7 +25,7 @@ const CurrencySelect = ({ value, onChange }) => {
     };
 
     fetchCurrencies();
-  }, []);
+  }, [getOptions]);
 
   return (
     <Select
