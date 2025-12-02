@@ -1,14 +1,20 @@
-import { logApi } from '@/services';
-import { LoginLog, LoginLogQueryParams } from '@/services/types';
+// logApi usage moved into useSysLoginLogs hook
+import { LoginLog } from '@/services/types';
 import { PageContainer } from '@ant-design/pro-components';
 import ProTable, { ProColumns } from '@ant-design/pro-table';
 import { Tag } from 'antd';
-import { useRef } from 'react';
+import { useRef, useEffect } from 'react';
+import { useSysLoginLogs } from '@/hooks/useSysLoginLogs';
 
 // const { Option } = Select;
 
 const SysLoginLogManagement = () => {
   const actionRef = useRef();
+  const { list, total, loading, fetchList } = useSysLoginLogs();
+
+  useEffect(() => {
+    fetchList({ page: 1, pageSize: 10 });
+  }, [fetchList]);
 
   const renderStatus = (status: number) => (
     <Tag color={status === 1 ? 'green' : 'red'}>
@@ -49,29 +55,7 @@ const SysLoginLogManagement = () => {
     },
   ];
 
-  const fetchSysLoginLogs = async (params: LoginLogQueryParams) => {
-    try {
-      const response = await logApi.getSysLoginLogs(params);
-      if (response.code !== 200) {
-        return {
-          data: [],
-          success: false,
-          total: 0,
-        };
-      }
-      return {
-        data: response.data.data,
-        success: true,
-        total: response.data.total,
-      };
-    } catch (error) {
-      return {
-        data: [],
-        success: false,
-        total: 0,
-      };
-    }
-  };
+  // 使用 hook 提供的受控数据
 
   return (
     <PageContainer>
@@ -79,11 +63,13 @@ const SysLoginLogManagement = () => {
         columns={columns}
         rowKey="id"
         actionRef={actionRef}
-        request={fetchSysLoginLogs}
+        dataSource={list}
+        loading={loading}
         pagination={{
-          defaultPageSize: 10,
+          total,
           showSizeChanger: true,
         }}
+        onChange={(pagination) => fetchList({ page: pagination.current, pageSize: pagination.pageSize })}
         search={{
           labelWidth: 'auto',
         }}

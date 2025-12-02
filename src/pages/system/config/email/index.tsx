@@ -1,46 +1,36 @@
-import { configApi } from '@/services';
+// configApi dynamic import inside effect/submit
 import { Button, Card, Form, Input, message } from 'antd';
 import { useEffect, useState } from 'react';
+import { useDispatch } from '@umijs/max';
 
 const EmailConfigPage = () => {
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    const fetchConfig = async () => {
-      try {
-        setLoading(true);
-        const response = await configApi.getEmailConfig();
-        if (response.code === 200) {
-          form.setFieldsValue(response.data);
-        } else {
-          message.error('加载邮件配置失败');
-        }
-      } catch (error) {
-        message.error('加载邮件配置时出错');
-      } finally {
-        setLoading(false);
-      }
-    };
+  const dispatch = useDispatch();
 
-    fetchConfig();
-  }, [form]);
+  useEffect(() => {
+    setLoading(true);
+    dispatch({ type: 'config/getEmailConfig', callback: (response: any) => {
+      setLoading(false);
+      if (response?.code === 200) {
+        form.setFieldsValue(response.data);
+      } else {
+        message.error('加载邮件配置失败');
+      }
+    }});
+  }, [form, dispatch]);
 
   const handleFormSubmit = async (values) => {
-    try {
-      setLoading(true);
-
-      const response = await configApi.updateEmailConfig(values);
-      if (response) {
+    setLoading(true);
+    dispatch({ type: 'config/updateEmailConfig', payload: values, callback: (response: any) => {
+      setLoading(false);
+      if (response?.code === 200) {
         message.success('邮件配置更新成功');
       } else {
         message.error('邮件配置更新失败');
       }
-    } catch (error) {
-      message.error('更新邮件配置时出错');
-    } finally {
-      setLoading(false);
-    }
+    }});
   };
 
   return (

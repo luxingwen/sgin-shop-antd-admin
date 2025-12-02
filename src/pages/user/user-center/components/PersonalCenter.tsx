@@ -1,4 +1,4 @@
-import { userService } from '@/services';
+// userService dynamic import inside effect
 import {
   Avatar,
   Card,
@@ -11,28 +11,23 @@ import {
   Typography,
 } from 'antd';
 import { useEffect, useState } from 'react';
+import { useDispatch } from '@umijs/max';
 
 const { Title, Paragraph, Text } = Typography;
 
 const PersonalCenter = () => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(false);
+  const dispatch = useDispatch();
 
   useEffect(() => {
-    const fetchUserInfo = async () => {
-      setLoading(true);
-      try {
-        const response = await userService.getMyUserInfo();
-        setUser(response.data);
-      } catch (error) {
-        message.error('获取用户信息失败');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchUserInfo();
-  }, []);
+    setLoading(true);
+    dispatch({ type: 'user/getMyUserInfo', callback: (res: any) => {
+      setLoading(false);
+      if (res?.code === 200) setUser(res.data);
+      else message.error('获取用户信息失败');
+    }});
+  }, [dispatch]);
 
   const getAvatar = () => {
     if (user?.avatar) {

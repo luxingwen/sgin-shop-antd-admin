@@ -1,5 +1,5 @@
-import { apiApi } from '@/services'; // 假设服务在该路径
-import { Api, ApiListQueryParams } from '@/services/types';
+// apiApi usage moved into useApis hook
+import { Api } from '@/services/types';
 import { DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons';
 import { PageContainer } from '@ant-design/pro-components';
 import ProTable, { ActionType, ProColumns } from '@ant-design/pro-table';
@@ -14,7 +14,8 @@ import {
   Switch,
   Tag,
 } from 'antd';
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
+import { useApis } from '@/hooks/useApis';
 
 const { Option } = Select;
 
@@ -23,6 +24,11 @@ const SysApiInfoManagement = () => {
   const [editingApiInfo, setEditingApiInfo] = useState<Api>();
   const [form] = Form.useForm();
   const actionRef = useRef<ActionType>();
+  const { list, total, loading, fetchList, remove, add, update } = useApis();
+
+  useEffect(() => {
+    fetchList({ page: 1, pageSize: 10 });
+  }, [fetchList]);
 
   const handleAddApiInfo = () => {
     setEditingApiInfo(undefined);
@@ -41,9 +47,8 @@ const SysApiInfoManagement = () => {
 
   const handleDeleteApiInfo = async (id: string) => {
     try {
-      await apiApi.deleteApi({ uuid: id });
+      await remove(id);
       message.success('删除成功');
-      actionRef.current?.reload();
     } catch (error) {
       message.error('删除失败');
     }
@@ -54,14 +59,13 @@ const SysApiInfoManagement = () => {
       const values = await form.validateFields();
       values.status = values.status ? 1 : 0; // Converting switch boolean to status integer
       if (editingApiInfo) {
-        await apiApi.updateApi({ ...editingApiInfo, ...values });
+        await update({ ...editingApiInfo, ...values });
         message.success('更新成功');
       } else {
-        await apiApi.addApi(values);
+        await add(values);
         message.success('添加成功');
       }
       setIsModalVisible(false);
-      actionRef.current?.reload();
     } catch (error) {
       message.error('操作失败');
     }
@@ -150,29 +154,7 @@ const SysApiInfoManagement = () => {
     },
   ];
 
-  const fetchApis = async (params: ApiListQueryParams) => {
-    try {
-      const response = await apiApi.getApis(params);
-      if (response.code !== 200) {
-        return {
-          data: [],
-          success: false,
-          total: 0,
-        };
-      }
-      return {
-        data: response.data.data,
-        success: true,
-        total: response.data.total,
-      };
-    } catch (error) {
-      return {
-        data: [],
-        success: false,
-        total: 0,
-      };
-    }
-  };
+  // 使用 hook fetchList 提供受控数据
 
   return (
     <PageContainer>
@@ -180,11 +162,13 @@ const SysApiInfoManagement = () => {
         columns={columns}
         rowKey="id"
         actionRef={actionRef}
-        request={fetchApis}
+        dataSource={list}
+        loading={loading}
         pagination={{
-          defaultPageSize: 10,
+          total,
           showSizeChanger: true,
         }}
+        onChange={(pagination) => fetchList({ page: pagination.current, pageSize: pagination.pageSize })}
         search={{
           labelWidth: 'auto',
         }}

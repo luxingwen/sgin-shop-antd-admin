@@ -1,27 +1,25 @@
 import React from 'react';
 import { Form, Input, Button, Checkbox, Card, message } from 'antd';
 import { UserOutlined, LockOutlined } from '@ant-design/icons';
-import { userService } from '@/services';
+// userService dynamic import in onFinish
 import Cookie from 'js-cookie';
-import { history } from '@umijs/max';
+import { history, useDispatch } from '@umijs/max';
 
 const LoginPage = () => {
 
 
+  const dispatch = useDispatch();
+
   const onFinish = (values) => {
-    userService.login(values)
-      .then((res) => {
-        if (res.code === 200) {
-          message.success('登录成功');
-          Cookie.set('token', res.data.token);
-          history.push('/');
-        } else {
-          message.error(res.message);
-        }
-      })
-      .catch((err) => {
-        message.error('登录失败');
-      });
+    dispatch({ type: 'user/login', payload: values, callback: (res: any) => {
+      if (res?.code === 200) {
+        message.success('登录成功');
+        Cookie.set('token', res.data.token);
+        history.push('/');
+      } else {
+        message.error(res?.message || '登录失败');
+      }
+    }});
   };
 
   return (

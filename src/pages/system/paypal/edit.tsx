@@ -1,23 +1,22 @@
-import { paymentApi } from '@/services';
 import { Button, Card, Form, Input, message, Tabs } from 'antd';
 import { useEffect, useState } from 'react';
+import { usePaymentConfig } from '@/hooks/usePaymentConfig';
 
 const { TabPane } = Tabs;
 
 const PayPalEdit = () => {
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>();
+  const [paymentMethod, setPaymentMethod] = useState<any>();
   const [environment, setEnvironment] = useState('production'); // Track the current environment
+
+  const { getPaymentInfo, updateConfig } = usePaymentConfig();
 
   useEffect(() => {
     // Fetch PayPal configuration on component mount
     const fetchPayPalConfig = async () => {
       try {
-        setLoading(true);
-        const response = await paymentApi.getPaymentMethodInfo({
-          code: 'paypal',
-        });
+        const response = await getPaymentInfo({ code: 'paypal' });
         if (response.code === 200) {
           setPaymentMethod(response.data);
           if (response.data.config !== '') {
@@ -29,13 +28,11 @@ const PayPalEdit = () => {
         }
       } catch (error) {
         message.error('An error occurred while fetching PayPal configuration');
-      } finally {
-        setLoading(false);
       }
     };
 
     fetchPayPalConfig();
-  }, [form]);
+  }, [form, getPaymentInfo, environment]);
 
   const handleFormSubmit = async (values) => {
     try {
@@ -44,10 +41,7 @@ const PayPalEdit = () => {
         ? JSON.parse(paymentMethod.config)
         : {};
       config[environment] = values; // Save the current environment's settings
-      const response = await paymentApi.updatePaymentMethodConfig({
-        uuid: paymentMethod?.uuid,
-        config: JSON.stringify(config),
-      });
+      const response = await updateConfig({ uuid: paymentMethod?.uuid, config: JSON.stringify(config) });
       if (response.code === 200) {
         message.success('PayPal configuration updated successfully');
       } else {

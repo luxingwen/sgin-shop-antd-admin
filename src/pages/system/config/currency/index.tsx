@@ -1,4 +1,4 @@
-import { currencyApi } from '@/services';
+// currencyApi dynamic import inside handlers
 import { CurrencyData } from '@/services/types';
 import { DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons';
 import { PageContainer } from '@ant-design/pro-components';
@@ -14,6 +14,8 @@ import {
   Tag,
 } from 'antd';
 import { useRef, useState } from 'react';
+import { useDispatch } from '@umijs/max';
+import useCurrency from '@/hooks/useCurrency';
 
 const CurrencyManagement = () => {
   const [isModalVisible, setIsModalVisible] = useState(false);
@@ -33,11 +35,14 @@ const CurrencyManagement = () => {
     setIsModalVisible(true);
   };
 
+  const { deleteCurrency, addCurrency, updateCurrency } = useCurrency();
+  const dispatch = useDispatch();
+
   const handleDeleteCurrency = async (id) => {
     try {
-      await currencyApi.deleteCurrency({ uuid: id });
+      await deleteCurrency(id);
       message.success('删除成功');
-      actionRef.current?.reload();
+      (actionRef as any).current?.reload?.();
     } catch (error) {
       message.error('删除失败');
     }
@@ -48,14 +53,14 @@ const CurrencyManagement = () => {
       const values = await form.validateFields();
       values.status = values.status ? 1 : 0;
       if (editingCurrency) {
-        await currencyApi.updateCurrency({ ...editingCurrency, ...values });
+        await updateCurrency({ ...editingCurrency, ...values } as any);
         message.success('更新成功');
       } else {
-        await currencyApi.addCurrency(values);
+        await addCurrency(values as any);
         message.success('添加成功');
       }
       setIsModalVisible(false);
-      actionRef.current?.reload();
+      (actionRef as any).current?.reload?.();
     } catch (error) {
       message.error('操作失败');
     }
@@ -108,25 +113,12 @@ const CurrencyManagement = () => {
 
   const fetchCurrencies = async (params) => {
     try {
-      const response = await currencyApi.getCurrencies(params);
-      if (response.code !== 200) {
-        return {
-          data: [],
-          success: false,
-          total: 0,
-        };
-      }
-      return {
-        data: response.data.data,
-        success: true,
-        total: response.data.total,
-      };
+      const res: any = await new Promise((resolve, reject) => {
+        dispatch({ type: 'currency/getList', payload: params, callback: (r: any) => (r?.code === 200 ? resolve(r) : reject(r)) });
+      });
+      return { data: res.data.data, success: true, total: res.data.total };
     } catch (error) {
-      return {
-        data: [],
-        success: false,
-        total: 0,
-      };
+      return { data: [], success: false, total: 0 };
     }
   };
 

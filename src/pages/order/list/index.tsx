@@ -1,59 +1,33 @@
-import {orderServices} from '@/services';
+// orderServices migrated into useOrders hook
 import { DeleteOutlined, EyeOutlined, PlusOutlined } from '@ant-design/icons';
 import { PageContainer } from '@ant-design/pro-components';
 import ProTable from '@ant-design/pro-table';
 import { history } from '@umijs/max';
-import { Button, message, Modal, Popconfirm, Tag, Typography } from 'antd';
-import { useRef, useState } from 'react';
+import { Button, message, Modal, Popconfirm, Tag } from 'antd';
+import { useRef, useState, useEffect } from 'react';
+import { useOrders } from '@/hooks/useOrders';
 
 const OrderManagement = () => {
   const actionRef = useRef();
   const [previewVisible, setPreviewVisible] = useState(false);
   const [orderItems, setOrderItems] = useState([]);
+  const { list, total, loading, fetchList, remove, getOrderItems } = useOrders();
+
+  useEffect(() => {
+    fetchList({ page: 1, pageSize: 10 });
+  }, [fetchList]);
 
   const handleAddOrder = () => {
     history.push('/order/create');
   };
 
-  const queryOrder = async (params, sort, filter) => {
-    const queryParams = {
-      ...params,
-      ...sort,
-      ...filter,
-    };
+  // 使用 hook 的受控数据
 
+  const handleDeleteOrder = async (id: any) => {
     try {
-      const response = await orderServices.getOrders(queryParams);
-      if (response.code !== 200) {
-        return {
-          data: [],
-          success: false,
-          total: 0,
-        };
-      }
-      return {
-        data: response.data.data,
-        success: true,
-        total: response.data.total,
-      };
-    } catch (error) {
-      return {
-        data: [],
-        success: false,
-        total: 0,
-      };
-    }
-  };
-
-  const handleDeleteOrder = async (id) => {
-    try {
-      const res = await orderServices.deleteOrder({ id });
-      if (res.code !== 200) {
-        message.error('删除失败 :' + res.message);
-      } else {
-        message.success('删除成功');
-        actionRef.current?.reload();
-      }
+      await remove(id);
+      message.success('删除成功');
+      fetchList({ page: 1, pageSize: 10 });
     } catch (error) {
       message.error('删除失败');
     }
@@ -76,11 +50,11 @@ const OrderManagement = () => {
     }
   };
 
-  const handlePreviewOrderItems = async (orderID) => {
+  const handlePreviewOrderItems = async (orderID: any) => {
     try {
-      const response = await orderServices.getOrderItemList({ order_id: orderID });
+      const response = await getOrderItems(orderID);
       if (response.code === 200) {
-        setOrderItems(response.data);
+        setOrderItems(response.data as any);
         setPreviewVisible(true);
       } else {
         message.error('获取订单商品失败');
@@ -131,9 +105,10 @@ const OrderManagement = () => {
         columns={columns}
         rowKey="id"
         actionRef={actionRef}
-        request={queryOrder}
+        dataSource={list}
+        loading={loading}
         pagination={{
-          defaultPageSize: 10,
+          total,
           showSizeChanger: true,
         }}
         search={{

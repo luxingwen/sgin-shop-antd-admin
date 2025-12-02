@@ -1,4 +1,6 @@
-import { menuApi, permissionApi } from '@/services';
+// menu/permission services moved to hooks
+import { useMenus } from '@/hooks/useMenus';
+import { usePermissions } from '@/hooks/usePermissions';
 
 import { PageContainer } from '@ant-design/pro-components';
 import { history } from '@umijs/max';
@@ -7,69 +9,44 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 
 const BindMenusPage = () => {
-  const [menuTree, setMenuTree] = useState([]);
-  const [selectedKeys, setSelectedKeys] = useState([]);
-  const [permissionInfo, setPermissionInfo] = useState({});
+  const [menuTree, setMenuTree] = useState<any[]>([]);
+  const [selectedKeys, setSelectedKeys] = useState<any[]>([]);
+  const [permissionInfo, setPermissionInfo] = useState<any>({});
   const { permissionId } = useParams(); // 从路由获取权限ID
+  const { menus: hookMenus, fetchMenus } = useMenus();
+  const { getPermissionInfo, fetchPermissionMenus, bindPermissionMenus } = usePermissions();
 
-  const fetchPermissionInfo = async (permissionId) => {
-    try {
-      const response = await permissionApi.getPermissionInfo({
-        uuid: permissionId,
-      });
-      if (response.code === 200) {
-        setPermissionInfo(response.data);
-      } else {
+  useEffect(() => {
+    const init = async () => {
+      try {
+        const info = await getPermissionInfo(permissionId);
+        setPermissionInfo(info.data);
+      } catch (e) {
         message.error('获取权限信息失败');
       }
-    } catch (error) {
-      message.error('获取权限信息失败');
-    }
-  };
-  const formatMenuTree = (menus) => {
-    const map = {};
-    menus.forEach((menu) => {
-      map[menu.uuid] = {
-        ...menu,
-        key: menu.uuid,
-        title: menu.name,
-        children: [],
-      };
-    });
-    menus.forEach((menu) => {
-      if (menu.parent_uuid && map[menu.parent_uuid]) {
-        map[menu.parent_uuid].children.push(map[menu.uuid]);
+
+      try {
+        const perms = await fetchPermissionMenus(permissionId);
+        const menuUuids = (perms || []).map((m: any) => m.menu_uuid);
+        setSelectedKeys(menuUuids);
+      } catch (e) {
+        message.error('获取权限已绑定菜单失败');
       }
-    });
-    return Object.values(map).filter((menu) => !menu.parent_uuid);
-  };
 
-  const fetchMenus = async () => {
-    try {
-      const response = await menuApi.getMenus();
-      setMenuTree(formatMenuTree(response.data.data));
-    } catch (error) {
-      message.error('获取菜单列表失败');
-    }
-  };
+      try {
+        await fetchMenus();
+        setMenuTree(hookMenus);
+      } catch (e) {
+        message.error('获取菜单列表失败');
+      }
+    };
 
-  const fetchPermissionMenus = async (uuid) => {
-    try {
-      const response =
-        await permissionApi.getPermissionMenuInfoByPermissionUuid({ uuid });
-      const menuUuids = response.data.map((menu) => menu.menu_uuid);
-      setSelectedKeys(menuUuids);
-    } catch (error) {
-      message.error('获取权限已绑定菜单失败');
-    }
-  };
+    init();
+  }, [permissionId, fetchMenus, getPermissionInfo, fetchPermissionMenus, hookMenus]);
 
   const handleBindMenus = async () => {
     try {
-      await permissionApi.addPermissionMenu({
-        permission_uuid: permissionId,
-        menu_uuids: selectedKeys,
-      });
+      await bindPermissionMenus(permissionId, selectedKeys as any[]);
       message.success('菜单绑定成功');
       history.push('/system/permission'); // 绑定完成后返回权限列表
     } catch (error) {
@@ -77,19 +54,13 @@ const BindMenusPage = () => {
     }
   };
 
-  useEffect(() => {
-    fetchPermissionInfo(permissionId);
-    fetchPermissionMenus(permissionId);
-    fetchMenus();
-  }, [permissionId]);
-
   return (
     <PageContainer>
       <Card title="权限信息" bordered={false} style={{ marginBottom: 24 }}>
         <Row gutter={[16, 16]}>
           <Col span={12}>
             <strong>权限名称: </strong>
-            {permissionInfo.name}
+            {(permissionInfo as any).name}
           </Col>
         </Row>
       </Card>
@@ -97,7 +68,7 @@ const BindMenusPage = () => {
         <Tree
           checkable
           checkedKeys={selectedKeys}
-          onCheck={(checkedKeys) => setSelectedKeys(checkedKeys)}
+          onCheck={(checkedKeys: any) => setSelectedKeys(checkedKeys as any[])}
           treeData={menuTree}
         />
         <Button

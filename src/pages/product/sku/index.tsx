@@ -1,15 +1,21 @@
-import { productServices} from '@/services';
+// productServices moved into useSkuItems hook
 import { DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons';
 import { PageContainer } from '@ant-design/pro-components';
 import ProTable from '@ant-design/pro-table';
 import { history } from '@umijs/max';
-import { Button, Input, message, Modal, Popconfirm, Typography } from 'antd';
-import { useRef, useState } from 'react';
+import { Button, message, Modal, Popconfirm, Typography } from 'antd';
+import { useRef, useState, useEffect } from 'react';
+import { useSkuItems } from '@/hooks/useSkuItems';
 
-const { TextArea } = Input;
+// TextArea not used here
 
 const SkuManagement = () => {
   const actionRef = useRef();
+  const { list, total, loading, fetchList, remove } = useSkuItems();
+
+  useEffect(() => {
+    fetchList({ page: 1, pageSize: 10 });
+  }, [fetchList]);
   const [previewVisible, setPreviewVisible] = useState(false);
   const [previewImage, setPreviewImage] = useState('');
 
@@ -17,45 +23,13 @@ const SkuManagement = () => {
     history.push('/sku/create');
   };
 
-  const querySku = async (params, sort, filter) => {
-    const queryParams = {
-      ...params,
-      ...sort,
-      ...filter,
-    };
+  // 使用 hook 提供的受控数据源
 
+  const handleDeleteSku = async (id: string) => {
     try {
-      const response = await productServices.getProductItems(queryParams);
-      if (response.code !== 200) {
-        return {
-          data: [],
-          success: false,
-          total: 0,
-        };
-      }
-      return {
-        data: response.data.data,
-        success: true,
-        total: response.data.total,
-      };
-    } catch (error) {
-      return {
-        data: [],
-        success: false,
-        total: 0,
-      };
-    }
-  };
-
-  const handleDeleteSku = async (id) => {
-    try {
-      const res = await productServices.deleteProductItem({ uuids: [id] });
-      if (res.code !== 200) {
-        message.error('删除失败 :' + res.message);
-      } else {
-        message.success('删除成功');
-        actionRef.current?.reload();
-      }
+      await remove(id);
+      message.success('删除成功');
+      fetchList({ page: 1, pageSize: 10 });
     } catch (error) {
       message.error('删除失败');
     }
@@ -113,7 +87,7 @@ const SkuManagement = () => {
       dataIndex: 'name',
       key: 'name',
       render: (_, record) => {
-        if (record.name == null || record.name == '') {
+        if (record.name === null || record.name === '') {
           return <p> {record.product_info?.name} </p>;
         }
         return <p>{record.name} </p>;
@@ -181,9 +155,10 @@ const SkuManagement = () => {
         columns={columns}
         rowKey="id"
         actionRef={actionRef}
-        request={querySku}
+        dataSource={list}
+        loading={loading}
         pagination={{
-          defaultPageSize: 10,
+          total,
           showSizeChanger: true,
         }}
         search={{

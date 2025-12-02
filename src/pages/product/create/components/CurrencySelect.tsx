@@ -1,7 +1,8 @@
-import { currencyApi } from '@/services';
+// currencyApi dynamic import inside effect
 import { CurrencyData } from '@/services/types';
 import { Select, Spin, message } from 'antd';
 import { useEffect, useState } from 'react';
+import useCurrency from '@/hooks/useCurrency';
 
 const { Option } = Select;
 
@@ -10,15 +11,12 @@ const CurrencySelect = ({ value, onChange }) => {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    const { getOptions } = useCurrency();
     const fetchCurrencies = async () => {
       setLoading(true);
       try {
-        const response = await currencyApi.getCurrencyOptions();
-        if (response.code === 200) {
-          setCurrencies(response.data);
-        } else {
-          message.error('获取货币列表失败');
-        }
+        const response = await getOptions();
+        setCurrencies(response || []);
       } catch (error) {
         message.error('获取货币列表失败');
       } finally {
@@ -38,7 +36,7 @@ const CurrencySelect = ({ value, onChange }) => {
       loading={loading}
       showSearch
       filterOption={(input, option) =>
-        option.children.toLowerCase().indexOf(input.toLowerCase()) >= 0
+        (option.children as any).toString().toLowerCase().indexOf(input.toLowerCase()) >= 0
       }
       notFoundContent={loading ? <Spin size="small" /> : '没有找到选项'}
     >

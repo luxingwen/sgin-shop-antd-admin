@@ -11,7 +11,7 @@ import {
   import { useEffect } from 'react';
   
   export default function RightContent({ isHome = false }) {
-    const { initialState, setInitialState, refresh } = useModel('@@initialState');
+    const { initialState, setInitialState } = useModel('@@initialState');
   
     const currentUser = initialState?.currentUser;
     const fetchUserInfo = initialState?.fetchUserInfo;
@@ -50,7 +50,7 @@ import {
       <Space className={`mr-4 cursor-pointer`}>
         {currentUser ? (
           <HeaderDropdown
-            placement={isHome ? 'bottom' : ''}
+            placement={isHome ? 'bottomLeft' : undefined}
             menu={{
               selectedKeys: [],
               onClick: (event) => {

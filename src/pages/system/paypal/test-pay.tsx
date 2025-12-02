@@ -1,7 +1,8 @@
-import { paymentApi } from '@/services';
+// paymentApi dynamic import inside effect/submit
 import { PayPalButtons, PayPalScriptProvider } from '@paypal/react-paypal-js';
 import { Button, Card, Form, Input, message, Modal } from 'antd';
 import { useEffect, useState } from 'react';
+import { useDispatch } from '@umijs/max';
 
 const PayPalTest = () => {
   const [form] = Form.useForm();
@@ -11,35 +12,27 @@ const PayPalTest = () => {
   const [paid, setPaid] = useState(false);
   const [clientId, setClientId] = useState(null); // State to store the client ID
 
-  useEffect(() => {
-    const getClientId = async () => {
-      try {
-        const response = await paymentApi.fetchPayPalClientId('sandbox');
-        if (response.code === 200) {
-          setClientId(response.data);
-        } else {
-          message.error('Failed to load PayPal client ID');
-        }
-      } catch (error) {
-        message.error('An error occurred while fetching PayPal client ID');
-      }
-    };
+  const dispatch = useDispatch();
 
-    getClientId();
-  }, []);
+  useEffect(() => {
+    dispatch({ type: 'payment/fetchClientId', payload: 'sandbox', callback: (res: any) => {
+      if (res?.code === 200) setClientId(res.data);
+      else message.error('Failed to load PayPal client ID');
+    }});
+  }, [dispatch]);
 
   const handleFormSubmit = async (values) => {
     setLoading(true);
     try {
       values.amount = parseFloat(values.amount);
-      const response = await paymentApi.requestPayPalPayment(values);
-
-      if (response.code === 200 && response.data && response.data.id) {
-        setOrderId(response.data.id); // Store the PayPal order ID
-        setIsModalVisible(true); // Show the modal with PayPal buttons
-      } else {
-        message.error('Failed to initiate PayPal payment');
-      }
+      dispatch({ type: 'payment/requestPayPal', payload: values, callback: (res: any) => {
+        if (res?.code === 200 && res.data && res.data.id) {
+          setOrderId(res.data.id);
+          setIsModalVisible(true);
+        } else {
+          message.error('Failed to initiate PayPal payment');
+        }
+      }});
     } catch (error) {
       message.error('An error occurred while initiating PayPal payment');
     } finally {
@@ -62,7 +55,7 @@ const PayPalTest = () => {
             'client-id': clientId,
             currency: 'USD',
             intent: 'capture',
-          }}
+          } as any}
         >
           <Card
             title="PayPal Payment Test"

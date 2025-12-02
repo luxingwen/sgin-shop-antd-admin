@@ -1,34 +1,29 @@
-import { userService } from '@/services';
 import { DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons';
 import { PageContainer } from '@ant-design/pro-components';
 import ProTable from '@ant-design/pro-table';
 import { history } from '@umijs/max';
-import {
-  Button,
-  Form,
-  Input,
-  message,
-  Modal,
-  Popconfirm,
-  Progress,
-  Select,
-  Tag,
-  Typography,
-} from 'antd';
-import { useRef, useState } from 'react';
+import { Button, Form, Input, message, Modal, Popconfirm, Progress, Select, Tag, Typography } from 'antd';
+import { useEffect, useRef, useState } from 'react';
+import { useUsers } from '@/hooks/useUsers';
 
 const { Option } = Select;
 const { Text } = Typography;
 
 const UserManagement = () => {
   const [isModalVisible, setIsModalVisible] = useState(false);
-  const [editingUser, setEditingUser] = useState(null);
+  const [editingUser, setEditingUser] = useState<any | null>(null);
   const [passwordStrength, setPasswordStrength] = useState(0);
   const [strengthLabel, setStrengthLabel] = useState('');
-  const [progressColor, setProgressColor] = useState('#f5222d'); // 初始为红色
+  const [progressColor, setProgressColor] = useState('#f5222d');
 
   const [form] = Form.useForm();
-  const actionRef = useRef();
+  const actionRef = useRef<any>();
+
+  const { list, total, loading, fetchList, remove, create, update } = useUsers();
+
+  useEffect(() => {
+    fetchList({ page: 1, pageSize: 10 });
+  }, [fetchList]);
 
   const handleAddUser = () => {
     setEditingUser(null);
@@ -42,16 +37,12 @@ const UserManagement = () => {
     setIsModalVisible(true);
   };
 
-  const handleDeleteUser = async (id) => {
+  const handleDeleteUser = async (id: string) => {
     try {
-      const res = await userService.deleteUser({ uuid: id });
-      if (res.code !== 200) {
-        message.error('删除失败 :' + res.message);
-      } else {
-        message.success('删除成功');
-        actionRef.current?.reload();
-      }
-    } catch (error) {
+      await remove(id);
+      message.success('删除成功');
+      fetchList({ page: 1, pageSize: 10 });
+    } catch (e) {
       message.error('删除失败');
     }
   };
@@ -62,18 +53,14 @@ const UserManagement = () => {
       values.age = parseInt(values.age ? values.age : 0);
       values.password_strength = passwordStrength;
       if (editingUser) {
-        await userService.updateUser({ ...editingUser, ...values });
+        await update({ ...editingUser, ...values });
         message.success('更新成功');
       } else {
-        const res = await userService.addUser(values);
-        if (res.code === 200) {
-          message.success('添加成功');
-        } else {
-          message.error('添加失败 :' + res.message);
-        }
+        await create(values);
+        message.success('添加成功');
       }
       setIsModalVisible(false);
-      actionRef.current?.reload();
+      fetchList({ page: 1, pageSize: 10 });
     } catch (error) {
       message.error('操作失败');
     }
@@ -133,35 +120,7 @@ const UserManagement = () => {
     return strength;
   };
 
-  const queryUser = async (params, sort, filter) => {
-    const queryParams = {
-      ...params,
-      ...sort,
-      ...filter,
-    };
-
-    try {
-      const response = await userService.getUsers(queryParams);
-      if (response.code !== 200) {
-        return {
-          data: [],
-          success: false,
-          total: 0,
-        };
-      }
-      return {
-        data: response.data.data,
-        success: true,
-        total: response.data.total,
-      };
-    } catch (error) {
-      return {
-        data: [],
-        success: false,
-        total: 0,
-      };
-    }
-  };
+  // 使用 model 提供的数据，通过 ProTable 的受控方式传入
 
   const handleBindPermissions = (record) => {
     history.push(`/system/user/permission/${record.uuid}`);
@@ -230,23 +189,20 @@ const UserManagement = () => {
         columns={columns}
         rowKey="id"
         actionRef={actionRef}
-        request={queryUser}
+        dataSource={list}
+        loading={loading}
         pagination={{
-          defaultPageSize: 10,
+          total,
           showSizeChanger: true,
         }}
-        search={{
-          labelWidth: 'auto',
+        onChange={(pagination, filters, sorter) => {
+          fetchList({ page: pagination.current, pageSize: pagination.pageSize, sorter, filter: filters });
         }}
+        search={{ labelWidth: 'auto' }}
         options={false}
         scroll={{ x: 'max-content' }}
         toolBarRender={() => [
-          <Button
-            key="button"
-            icon={<PlusOutlined />}
-            onClick={handleAddUser}
-            type="primary"
-          >
+          <Button key="button" icon={<PlusOutlined />} onClick={handleAddUser} type="primary">
             添加用户
           </Button>,
         ]}

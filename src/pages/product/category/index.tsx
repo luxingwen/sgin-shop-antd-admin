@@ -1,6 +1,5 @@
-import {
-  categoryServices
-} from '@/services';
+// categoryServices migrated into useProductCategories hook
+import { useProductCategories } from '@/hooks/useProductCategories';
 import { DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons';
 import { PageContainer } from '@ant-design/pro-components';
 import ProTable from '@ant-design/pro-table';
@@ -21,6 +20,7 @@ const { Option } = Select;
 const ProductCategoryManagement = () => {
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(false);
+  const { categories: hookCategories, loading: hookLoading, fetchCategories, remove, add, update } = useProductCategories();
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [editingCategory, setEditingCategory] = useState(null);
   const [parentUUID, setParentUUID] = useState(null);
@@ -29,37 +29,20 @@ const ProductCategoryManagement = () => {
 
   useEffect(() => {
     fetchCategories();
-  }, []);
+  }, [fetchCategories]);
 
-  const fetchCategories = async () => {
-    setLoading(true);
-    try {
-      const response = await categoryServices.getAllProductCategories();
-      setCategories(formatCategoryTree(response.data));
-    } catch (error) {
-      message.error('获取分类列表失败');
-    } finally {
-      setLoading(false);
-    }
-  };
+  useEffect(() => {
+    setCategories(hookCategories);
+    setLoading(hookLoading);
+  }, [hookCategories, hookLoading]);
 
-  const formatCategoryTree = (categories) => {
-    const map = {};
-    categories.forEach((category) => {
-      map[category.uuid] = {
-        ...category,
-        key: category.uuid,
-        title: category.name,
-        children: [],
-      };
-    });
-    categories.forEach((category) => {
-      if (category.parent_uuid && map[category.parent_uuid]) {
-        map[category.parent_uuid].children.push(map[category.uuid]);
-      }
-    });
-    return Object.values(map).filter((category) => !category.parent_uuid);
+  // fetchCategories 已由 hook 提供
+  const getParentName = (uuid) => {
+    if (!uuid) return '';
+    const parent = categories.find((category) => category.uuid === uuid);
+    return parent ? parent.name : '';
   };
+  
 
   const handleAddCategory = (parentUUID0 = null) => {
     setEditingCategory(null);
@@ -81,15 +64,11 @@ const ProductCategoryManagement = () => {
   };
 
   const handleDeleteCategory = async (uuid) => {
-    setLoading(true);
     try {
-      await categoryServices.deleteProductCategory({ uuid });
+      await remove(uuid);
       message.success('删除成功');
-      fetchCategories();
     } catch (error) {
       message.error('删除失败');
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -98,14 +77,13 @@ const ProductCategoryManagement = () => {
       const values = await form.validateFields();
       values.parentUuid = parentUUID || '';
       if (editingCategory) {
-        await categoryServices.updateProductCategory({ ...editingCategory, ...values });
+        await update({ ...editingCategory, ...values });
         message.success('更新成功');
       } else {
-        await categoryServices.addProductCategory(values);
+        await add(values);
         message.success('添加成功');
       }
       setIsModalVisible(false);
-      fetchCategories();
     } catch (error) {
       message.error('操作失败');
     }
@@ -170,14 +148,7 @@ const ProductCategoryManagement = () => {
     },
   ];
 
-  const getParentName = (uuid) => {
-    console.log('uuid:', uuid);
-
-    if (!uuid) return '';
-    const parent = categories.find((category) => category.uuid === uuid);
-    console.log('paremnt:', parent);
-    return parent ? parent.name : '';
-  };
+  
 
   return (
     <PageContainer>
@@ -230,14 +201,13 @@ const ProductCategoryManagement = () => {
           </Form.Item>
 
           <Form.Item name="parent_uuid" label="父级分类">
-            {parentUUID == null ? (
+            {parentUUID === null ? (
               <Select
                 showSearch
                 placeholder="选择父级分类（可选）"
                 optionFilterProp="children"
                 filterOption={(input, option) =>
-                  option.children.toLowerCase().indexOf(input.toLowerCase()) >=
-                  0
+                  (option.children as any).toString().toLowerCase().indexOf(input.toLowerCase()) >= 0
                 }
                 value={parentUUID || ''}
                 onChange={(value) => setParentUUID(value)}

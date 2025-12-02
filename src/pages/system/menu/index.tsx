@@ -1,4 +1,4 @@
-import { menuApi } from '@/services';
+// menuApi usage migrated into useMenus hook
 import { DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons';
 import { PageContainer } from '@ant-design/pro-components';
 import ProTable from '@ant-design/pro-table';
@@ -14,6 +14,7 @@ import {
   Switch,
 } from 'antd';
 import { useEffect, useState } from 'react';
+import { useMenus } from '@/hooks/useMenus';
 
 const { Option } = Select;
 
@@ -39,38 +40,17 @@ const MenuManagement = () => {
 
   const [form] = Form.useForm();
 
-  const formatMenuTree = (menus) => {
-    const map = {};
-    menus.forEach((menu) => {
-      map[menu.uuid] = {
-        ...menu,
-        key: menu.uuid,
-        title: menu.name,
-        children: [],
-      };
-    });
-    menus.forEach((menu) => {
-      if (menu.parent_uuid && map[menu.parent_uuid]) {
-        map[menu.parent_uuid].children.push(map[menu.uuid]);
-      }
-    });
-    return Object.values(map).filter((menu) => !menu.parent_uuid);
-  };
+  
+  const { menus: hookMenus, loading: hookLoading, fetchMenus, remove, add, update } = useMenus();
 
-  const fetchMenus = async () => {
-    setLoading(true);
-    try {
-      const response = await menuApi.getMenus({});
-      setMenus(formatMenuTree(response.data.data));
-    } catch (error) {
-      message.error('获取菜单列表失败');
-    } finally {
-      setLoading(false);
-    }
-  };
   useEffect(() => {
     fetchMenus();
-  }, []);
+  }, [fetchMenus]);
+
+  useEffect(() => {
+    setMenus(hookMenus);
+    setLoading(hookLoading);
+  }, [hookMenus, hookLoading]);
 
   const getParentName = (uuid) => {
     if (!uuid) return '';
@@ -97,15 +77,11 @@ const MenuManagement = () => {
   };
 
   const handleDeleteMenu = async (uuid) => {
-    setLoading(true);
     try {
-      await menuApi.deleteMenu({ uuid });
+      await remove(uuid);
       message.success('删除成功');
-      fetchMenus();
     } catch (error) {
       message.error('删除失败');
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -120,14 +96,13 @@ const MenuManagement = () => {
       values.icon = selectedIcon;
       values.order = parseInt(values.order ? values.order : 0);
       if (editingMenu) {
-        await menuApi.updateMenu({ ...editingMenu, ...values });
+        await update({ ...editingMenu, ...values });
         message.success('更新成功');
       } else {
-        await menuApi.addMenu(values);
+        await add(values);
         message.success('添加成功');
       }
       setIsModalVisible(false);
-      fetchMenus();
     } catch (error) {
       message.error('操作失败');
     }

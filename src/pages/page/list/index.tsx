@@ -1,59 +1,32 @@
-import { pageService } from '@/services';
+import { usePages } from '@/hooks/usePages';
 import { DeleteOutlined, EyeOutlined, PlusOutlined } from '@ant-design/icons';
 import { PageContainer } from '@ant-design/pro-components';
 import ProTable from '@ant-design/pro-table';
 import { history } from '@umijs/max';
 import { Button, message, Modal, Popconfirm, Tag, Typography } from 'antd';
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 
 const PageManagement = () => {
   const actionRef = useRef();
   const [previewVisible, setPreviewVisible] = useState(false);
-  const [pageDetails, setPageDetails] = useState({});
+  const [pageDetails, setPageDetails] = useState<any>({});
 
   const handleAddPage = () => {
     history.push('/page/create');
   };
 
-  const queryPages = async (params, sort, filter) => {
-    const queryParams = {
-      ...params,
-      ...sort,
-      ...filter,
-    };
+  const { list, total, loading, fetchList, remove, getPage } = usePages();
 
-    try {
-      const response = await pageService.getPages(queryParams);
-      if (response.code !== 200) {
-        return {
-          data: [],
-          success: false,
-          total: 0,
-        };
-      }
-      return {
-        data: response.data.data,
-        success: true,
-        total: response.data.total,
-      };
-    } catch (error) {
-      return {
-        data: [],
-        success: false,
-        total: 0,
-      };
-    }
-  };
+  // 加载第一页
+  useEffect(() => {
+    fetchList({ page: 1, pageSize: 10 });
+  }, [fetchList]);
 
   const handleDeletePage = async (uuid) => {
     try {
-      const res = await pageService.deletePage({ uuid });
-      if (res.code !== 200) {
-        message.error('删除失败 :' + res.message);
-      } else {
-        message.success('删除成功');
-        actionRef.current?.reload();
-      }
+      await remove(uuid);
+      message.success('删除成功');
+      fetchList({ page: 1, pageSize: 10 });
     } catch (error) {
       message.error('删除失败');
     }
@@ -72,7 +45,7 @@ const PageManagement = () => {
 
   const handlePreviewPage = async (uuid) => {
     try {
-      const response = await pageService.getPage({ uuid });
+      const response = await getPage(uuid);
       if (response.code === 200) {
         setPageDetails(response.data);
         setPreviewVisible(true);
@@ -124,11 +97,13 @@ const PageManagement = () => {
         columns={columns}
         rowKey="uuid"
         actionRef={actionRef}
-        request={queryPages}
+        dataSource={list}
+        loading={loading}
         pagination={{
-          defaultPageSize: 10,
+          total,
           showSizeChanger: true,
         }}
+        onChange={(pagination) => fetchList({ page: pagination.current, pageSize: pagination.pageSize })}
         search={{
           labelWidth: 'auto',
         }}

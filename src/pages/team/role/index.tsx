@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Button, message, Popconfirm, Modal, Form, Input, Switch } from 'antd';
 import ProTable from '@ant-design/pro-table';
-import { roleService } from '@/services';
+// roleService usage migrated to useRoles hook
 import { DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons';
 import { PageContainer } from '@ant-design/pro-components';
 import { useParams } from 'react-router-dom';
+import { useRoles } from '@/hooks/useRoles';
 
 const RoleManagement = () => {
   const [isModalVisible, setIsModalVisible] = useState(false);
@@ -12,6 +13,11 @@ const RoleManagement = () => {
   const [form] = Form.useForm();
   const actionRef = useRef();
   const {teamId} = useParams();
+  const { list, total, loading, fetchList, remove, add, update } = useRoles();
+
+  useEffect(() => {
+    fetchList({ page: 1, pageSize: 10, team_uuid: teamId });
+  }, [fetchList, teamId]);
 
   const handleAddRole = () => {
     setEditingRole(null);
@@ -27,13 +33,9 @@ const RoleManagement = () => {
 
   const handleDeleteRole = async (id) => {
     try {
-      const res = await roleService.deleteRole({ uuid: id });
-      if (res.code !== 200) {
-        message.error('删除失败 :' + res.message);
-      } else {
-        message.success('删除成功');
-        actionRef.current?.reload();
-      }
+      await remove(id);
+      message.success('删除成功');
+      fetchList({ page: 1, pageSize: 10, team_uuid: teamId });
     } catch (error) {
       message.error('删除失败');
     }
@@ -44,18 +46,14 @@ const RoleManagement = () => {
       const values = await form.validateFields();
       values.team_uuid = teamId;
       if (editingRole) {
-        await roleService.updateRole({ ...editingRole, ...values });
+        await update({ ...editingRole, ...values });
         message.success('更新成功');
       } else {
-        const res = await roleService.addRole(values);
-        if (res.code === 200) {
-          message.success('添加成功');
-        } else {
-          message.error('添加失败 :' + res.message);
-        }
+        await add(values);
+        message.success('添加成功');
       }
       setIsModalVisible(false);
-      actionRef.current?.reload();
+      fetchList({ page: 1, pageSize: 10, team_uuid: teamId });
     } catch (error) {
       message.error('操作失败');
     }
@@ -101,29 +99,7 @@ const RoleManagement = () => {
     },
   ];
 
-  const queryRoles = async (params, sort, filter) => {
-    try {
-      const response = await roleService.getRoles({ ...params, ...sort, ...filter, team_uuid: teamId });
-      if (response.code !== 200) {
-        return {
-          data: [],
-          success: false,
-          total: 0,
-        };
-      }
-      return {
-        data: response.data.data,
-        success: true,
-        total: response.data.total,
-      };
-    } catch (error) {
-      return {
-        data: [],
-        success: false,
-        total: 0,
-      };
-    }
-  };
+  // 使用 useRoles 提供的受控数据
 
   return (
     <PageContainer>
@@ -131,11 +107,13 @@ const RoleManagement = () => {
         columns={columns}
         rowKey="uuid"
         actionRef={actionRef}
-        request={queryRoles}
+        dataSource={list}
+        loading={loading}
         pagination={{
-          defaultPageSize: 10,
+          total,
           showSizeChanger: true,
         }}
+        onChange={(pagination) => fetchList({ page: pagination.current, pageSize: pagination.pageSize, team_uuid: teamId })}
         search={{
           labelWidth: 'auto',
         }}

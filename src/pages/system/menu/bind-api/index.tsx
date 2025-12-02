@@ -1,10 +1,12 @@
-import { apiApi, menuApi } from '@/services';
+// api/menu service access moved to hooks: useApis & useMenus
 import { Api } from '@/services/types';
 import { PageContainer } from '@ant-design/pro-components';
 import ProTable, { ProColumns } from '@ant-design/pro-table';
 import { Button, Card, Col, message, Popconfirm, Row } from 'antd';
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
+import { useMenus } from '@/hooks/useMenus';
+import { useApis } from '@/hooks/useApis';
 
 const BindApisPage = () => {
   const [boundApis, setBoundApis] = useState([]);
@@ -12,10 +14,12 @@ const BindApisPage = () => {
   const [availableApis, setAvailableApis] = useState([]);
   const [menuInfo, setMenuInfo] = useState({});
   const { menuId } = useParams(); // 从路由获取菜单ID
+  const { getMenuInfo, fetchMenuAPIs, bindMenuAPIs } = useMenus();
+  const { fetchList: fetchApisList } = useApis();
 
   const fetchMenuInfo = async (menuId) => {
     try {
-      const response = await menuApi.getMenuInfo({ uuid: menuId });
+      const response = await getMenuInfo(menuId);
       if (response.code === 200) {
         setMenuInfo(response.data);
       } else {
@@ -28,13 +32,10 @@ const BindApisPage = () => {
 
   const fetchBoundApis = async (menuId) => {
     try {
-      const response = await menuApi.getMenuAPIListByMenuUUID({ uuid: menuId });
-      const boundData = response.data.map((api) => ({
-        ...api,
-        key: api.uuid,
-      }));
+      const response = await fetchMenuAPIs(menuId);
+      const boundData = ((response as any) || []).map((api: any) => ({ ...api, key: api.uuid }));
       setBoundApis(boundData);
-      setSelectedApiKeys(boundData.map((api) => api.uuid));
+      setSelectedApiKeys(boundData.map((api: any) => api.uuid));
     } catch (error) {
       message.error('获取已绑定API失败');
     }
@@ -42,10 +43,7 @@ const BindApisPage = () => {
 
   const handleSave = async () => {
     try {
-      await menuApi.addMenuAPI({
-        menu_uuid: menuId,
-        api_uuids: selectedApiKeys,
-      });
+      await bindMenuAPIs(menuId, selectedApiKeys as any[]);
       message.success('API绑定成功');
       fetchBoundApis(menuId); // 更新已绑定的API列表
     } catch (error) {
@@ -60,28 +58,18 @@ const BindApisPage = () => {
 
   const fetchApis = async (params) => {
     try {
-      const response = await apiApi.getApis(params);
-      if (response.code !== 200) {
-        return {
-          data: [],
-          success: false,
-          total: 0,
-        };
-      }
-
-      // 更新availableApis，追加新的，不重复添加已有的
-      const newApis = response.data.data;
+      const response = await fetchApisList(params);
+      // fetchApisList 已处理合并与返回 list
+      // 我们仍需维护 availableApis 合并逻辑
+      const newApis = (response as any)?.data || [];
       const existingApiIds = availableApis.map((api) => api.uuid);
-      const mergedApis = [
-        ...availableApis,
-        ...newApis.filter((api) => !existingApiIds.includes(api.uuid)),
-      ];
+      const mergedApis = [...availableApis, ...newApis.filter((api) => !existingApiIds.includes(api.uuid))];
       setAvailableApis(mergedApis);
 
       return {
         data: mergedApis,
         success: true,
-        total: response.data.total,
+        total: (response as any)?.total || 0,
       };
     } catch (error) {
       return {
@@ -171,11 +159,11 @@ const BindApisPage = () => {
         <Row gutter={[16, 16]}>
           <Col span={12}>
             <strong>菜单名称: </strong>
-            {menuInfo.name}
+            {(menuInfo as any).name}
           </Col>
           <Col span={12}>
             <strong>描述: </strong>
-            {menuInfo.description}
+            {(menuInfo as any).description}
           </Col>
         </Row>
       </Card>

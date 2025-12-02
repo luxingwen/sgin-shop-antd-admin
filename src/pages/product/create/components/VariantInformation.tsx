@@ -6,20 +6,6 @@ const VariantInformation = ({ variants, variantInfo, setVariantInfo }) => {
   const [costPrice, setCostPrice] = useState('');
   const [stock, setStock] = useState('');
 
-  useEffect(() => {
-    const datalist = generateTableDataSource(variants, 0, []);
-    // 为生成的每一项数据添加唯一的 key 和固定的列（如 price、costPrice 和 stock）
-    const finalDataSource = datalist.map((item, index) => ({
-      key: index + 1,
-      ...item,
-      price: '', // 初始销售价格为空
-      costPrice: '', // 初始成本价格为空
-      stock: '', // 初始库存为空
-    }));
-
-    setVariantInfo(finalDataSource);
-  }, [variants]);
-
   const generateTableDataSource = (variants, index, acc) => {
     if (index === variants.length) {
       return acc;
@@ -47,6 +33,20 @@ const VariantInformation = ({ variants, variantInfo, setVariantInfo }) => {
 
     return generateTableDataSource(variants, index + 1, newAcc);
   };
+
+  useEffect(() => {
+    const datalist = generateTableDataSource(variants, 0, []);
+    // 为生成的每一项数据添加唯一的 key 和固定的列（如 price、costPrice 和 stock）
+    const finalDataSource = datalist.map((item, index) => ({
+      key: index + 1,
+      ...item,
+      price: '', // 初始销售价格为空
+      costPrice: '', // 初始成本价格为空
+      stock: '', // 初始库存为空
+    }));
+
+    setVariantInfo(finalDataSource);
+  }, [variants]);
 
   /**
    * 动态合并表格方法
@@ -88,7 +88,7 @@ const VariantInformation = ({ variants, variantInfo, setVariantInfo }) => {
           children: text !== null ? text : '',
           props: {},
         };
-        obj.props.rowSpan = mergeCells(
+        (obj.props as any).rowSpan = mergeCells(
           text,
           variantInfo,
           variant.name,

@@ -1,7 +1,6 @@
-import { resourceApi } from '@/services';
 import { message, UploadFile } from 'antd';
 
-const handleUpload = async (fileList: UploadFile<any>[]) => {
+const handleUpload = async (fileList: UploadFile<any>[], createResourceFn?: (formData: FormData) => Promise<any>) => {
   const uploadedFiles: string[] = [];
   const formData = new FormData();
 
@@ -18,7 +17,11 @@ const handleUpload = async (fileList: UploadFile<any>[]) => {
 
   // 调用 API 上传文件并获取资源 ID 列表
   try {
-    const resource = await resourceApi.createResource(formData); // 假设 createResource 接收 FormData 对象
+    const fn = createResourceFn || (async (fd: FormData) => {
+      const mod = await import('@/services/system/resource');
+      return mod.resourceApi.createResource(fd);
+    });
+    const resource = await fn(formData); // 假设 createResource 接收 FormData 对象
 
     if (resource && Array.isArray(resource.data)) {
       resource.data.forEach((res) => {

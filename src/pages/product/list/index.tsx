@@ -1,4 +1,4 @@
-import { productServices } from '@/services';
+// productServices moved into hook usage
 import {
   DeleteOutlined,
   EditOutlined,
@@ -11,11 +11,18 @@ import ProTable, { ActionType, ProColumns } from '@ant-design/pro-table';
 import { Product, ProductVariant } from '@/services/types';
 import { useNavigate } from '@umijs/max';
 import { Button, message, Modal, Popconfirm, Tag, Typography } from 'antd';
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
+import { useProducts } from '@/hooks/useProducts';
 
 const ProductManagement = () => {
   let navigate = useNavigate();
   const actionRef = useRef<ActionType>();
+
+  const { list, total, loading, fetchList, remove } = useProducts();
+
+  useEffect(() => {
+    fetchList({ page: 1, pageSize: 10 });
+  }, [fetchList]);
   const [previewVisible, setPreviewVisible] = useState(false);
   const [previewImage, setPreviewImage] = useState('');
 
@@ -24,45 +31,13 @@ const ProductManagement = () => {
     // history.push('/product/create');
   };
 
-  const queryProduct = async (params, sort, filter) => {
-    const queryParams = {
-      ...params,
-      ...sort,
-      ...filter,
-    };
+  // 使用 model 的 fetchList，通过受控 dataSource 提供给 ProTable
 
+  const handleDeleteProduct = async (id: string) => {
     try {
-      const response = await productServices.getProducts(queryParams);
-      if (response.code !== 200) {
-        return {
-          data: [],
-          success: false,
-          total: 0,
-        };
-      }
-      return {
-        data: response.data.data,
-        success: true,
-        total: response.data.total,
-      };
-    } catch (error) {
-      return {
-        data: [],
-        success: false,
-        total: 0,
-      };
-    }
-  };
-
-  const handleDeleteProduct = async (id) => {
-    try {
-      const res = await productServices.deleteProduct({ uuids: [id] });
-      if (res.code !== 200) {
-        message.error('删除失败 :' + res.message);
-      } else {
-        message.success('删除成功');
-        actionRef.current?.reload();
-      }
+      await remove(id);
+      message.success('删除成功');
+      fetchList({ page: 1, pageSize: 10 });
     } catch (error) {
       message.error('删除失败');
     }
@@ -89,15 +64,18 @@ const ProductManagement = () => {
   const [productVariant, setProductVariant] = useState<
     Map<string, ProductVariant[]>
   >(new Map([]));
+  const { getVariants } = useProducts();
+
   const getProductVariant = async (product: Product) => {
-    console.log(product);
-    const result = await productServices.getProductVariantById({
-      uuid: product.uuid,
-    });
-    if (result.data.length) {
-      const newProductVariant = productVariant;
-      newProductVariant.set(product.uuid, result.data);
-      setProductVariant(newProductVariant);
+    try {
+      const result = await getVariants(product.uuid);
+      if (result?.length) {
+        const newProductVariant = productVariant;
+        newProductVariant.set(product.uuid, result);
+        setProductVariant(newProductVariant);
+      }
+    } catch (e) {
+      // ignore
     }
   };
 
@@ -213,9 +191,10 @@ const ProductManagement = () => {
           // <p style={{ margin: 0 }}>{record.description}</p>
           rowExpandable: (record) => record.name !== 'Not Expandable',
         }}
-        request={queryProduct}
+        dataSource={list}
+        loading={loading}
         pagination={{
-          defaultPageSize: 10,
+          total,
           showSizeChanger: true,
         }}
         search={{

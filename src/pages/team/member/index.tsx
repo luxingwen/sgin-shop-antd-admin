@@ -1,54 +1,46 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Button, message, Popconfirm, Modal, Form, Select } from 'antd';
 import ProTable from '@ant-design/pro-table';
-import { teamService } from '@/services';
-import { userService } from '@/services'; // 假设有获取用户列表的服务
+import { useUsers } from '@/hooks/useUsers';
 import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 import { PageContainer } from '@ant-design/pro-components';
 import { useParams } from 'react-router-dom';
+import { useTeamMembers } from '@/hooks/useTeamMembers';
 
 const { Option } = Select;
 
 const TeamMemberManagement = () => {
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [users, setUsers] = useState([]);
-  const [selectedUser, setSelectedUser] = useState(null);
   const [form] = Form.useForm();
   const actionRef = useRef();
   const {teamId} = useParams();
+  const { list, total, loading, fetchList, remove, add } = useTeamMembers();
+  const { getOptions } = useUsers();
 
   useEffect(() => {
-    fetchUsers();
-  }, []);
-
-  const fetchUsers = async () => {
-    try {
-      const response = await userService.getUserOptions();
-      if (response.code === 200) {
-        setUsers(response.data);
-      } else {
+    (async () => {
+      try {
+        const opts = await getOptions();
+        setUsers(opts || []);
+      } catch (e) {
         message.error('获取用户列表失败');
       }
-    } catch (error) {
-      message.error('获取用户列表失败');
-    }
-  };
+    })();
+    fetchList({ page: 1, pageSize: 10, team_uuid: teamId });
+  }, [fetchList, teamId, getOptions]);
 
   const handleAddMember = () => {
-    setSelectedUser(null);
+    // setSelectedUser(null);
     form.resetFields();
     setIsModalVisible(true);
   };
 
   const handleDeleteMember = async (id) => {
     try {
-      const res = await teamService.deleteTeamMember({ uuid: id });
-      if (res.code !== 200) {
-        message.error('删除失败 :' + res.message);
-      } else {
-        message.success('删除成功');
-        actionRef.current?.reload();
-      }
+      await remove(id);
+      message.success('删除成功');
+      fetchList({ page: 1, pageSize: 10, team_uuid: teamId });
     } catch (error) {
       message.error('删除失败');
     }
@@ -58,14 +50,10 @@ const TeamMemberManagement = () => {
     try {
       const values = await form.validateFields();
       values.team_uuid = teamId;
-      const res = await teamService.addTeamMember(values);
-      if (res.code === 200) {
-        message.success('添加成功');
-      } else {
-        message.error('添加失败 :' + res.message);
-      }
+      await add(values);
+      message.success('添加成功');
       setIsModalVisible(false);
-      actionRef.current?.reload();
+      fetchList({ page: 1, pageSize: 10, team_uuid: teamId });
     } catch (error) {
       message.error('操作失败');
     }
@@ -102,29 +90,7 @@ const TeamMemberManagement = () => {
     },
   ];
 
-  const queryMembers = async (params, sort, filter) => {
-    try {
-      const response = await teamService.getTeamMembers({ ...params, ...sort, ...filter, team_uuid: teamId });
-      if (response.code !== 200) {
-        return {
-          data: [],
-          success: false,
-          total: 0,
-        };
-      }
-      return {
-        data: response.data.data,
-        success: true,
-        total: response.data.total,
-      };
-    } catch (error) {
-      return {
-        data: [],
-        success: false,
-        total: 0,
-      };
-    }
-  };
+  // 使用 useTeamMembers 提供受控数据 list/total/loading
 
   return (
     <PageContainer>
@@ -132,11 +98,13 @@ const TeamMemberManagement = () => {
         columns={columns}
         rowKey="uuid"
         actionRef={actionRef}
-        request={queryMembers}
+        dataSource={list}
+        loading={loading}
         pagination={{
-          defaultPageSize: 10,
+          total,
           showSizeChanger: true,
         }}
+        onChange={(pagination) => fetchList({ page: pagination.current, pageSize: pagination.pageSize, team_uuid: teamId })}
         search={{
           labelWidth: 'auto',
         }}
@@ -170,7 +138,7 @@ const TeamMemberManagement = () => {
               placeholder="选择一个用户"
               optionFilterProp="children"
               filterOption={(input, option) =>
-                option.children.toLowerCase().indexOf(input.toLowerCase()) >= 0
+                (option.children as any).toString().toLowerCase().indexOf(input.toLowerCase()) >= 0
               }
             >
               {users.map((user) => (

@@ -1,4 +1,4 @@
-import { productServices } from '@/services';
+// productServices moved into useSkuItems hook
 import { DeleteOutlined } from '@ant-design/icons';
 import { PageContainer } from '@ant-design/pro-components';
 import { history } from '@umijs/max';
@@ -14,6 +14,7 @@ import {
   Typography,
 } from 'antd';
 import { useEffect, useRef, useState } from 'react';
+import { useSkuItems } from '@/hooks/useSkuItems';
 import { DndProvider, useDrag, useDrop } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
 import { useParams } from 'react-router-dom';
@@ -23,22 +24,22 @@ const { TextArea } = Input;
 
 const ItemType = 'IMAGE';
 
-const ImageItem = ({ url, index, moveImage, handleRemoveImage }) => {
+const ImageItem = ({ url, index, moveImage, handleRemoveImage, handlePreviewImage }) => {
   const ref = useRef(null);
 
   const [, drop] = useDrop({
     accept: ItemType,
-    hover(item) {
+    hover(item: any) {
       if (!ref.current) {
         return;
       }
-      const dragIndex = item.index;
+      const dragIndex = (item as any).index;
       const hoverIndex = index;
       if (dragIndex === hoverIndex) {
         return;
       }
       moveImage(dragIndex, hoverIndex);
-      item.index = hoverIndex;
+      (item as any).index = hoverIndex;
     },
   });
 
@@ -64,6 +65,9 @@ const ImageItem = ({ url, index, moveImage, handleRemoveImage }) => {
       }}
     >
       <img src={`/public/${url}`} alt="product" style={{ width: '100px' }} />
+      <div onClick={() => handlePreviewImage && handlePreviewImage(`/public/${url}`)} style={{ position: 'absolute', left: 6, bottom: 6, cursor: 'pointer', color: '#fff', fontSize: 12 }}>
+        预览
+      </div>
       <Button
         icon={<DeleteOutlined />}
         size="small"
@@ -84,30 +88,33 @@ const ImageItem = ({ url, index, moveImage, handleRemoveImage }) => {
 const SkuEdit = () => {
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
-  const [images, setImages] = useState([]);
+  const [images, setImages] = useState<any[]>([]);
   const [previewVisible, setPreviewVisible] = useState(false);
   const [previewImage, setPreviewImage] = useState('');
   const { uuid } = useParams();
-  const [editorData, setEditorData] = useState('');
+  
+
+  const { getItem, updateItem } = useSkuItems();
 
   const fetchSkuDetails = async (uuid) => {
     try {
       setLoading(true);
-      const response = await productServices.getProductItem({ uuid });
+      const response = await getItem(uuid);
       if (response.code === 200) {
-        if (response.data.name == '') {
-          response.data.name = response.data.product_info.name;
+        const data: any = response.data;
+        if (data.name === '') {
+          data.name = (data.product_info as any).name;
         }
 
-        if (response.data.description == '') {
-          response.data.description = response.data.product_info.description;
+        if (data.description === '') {
+          data.description = (data.product_info as any).description;
         }
 
-        form.setFieldsValue(response.data);
-        if (response.data.image_list.length > 0) {
-          setImages(response.data.image_list);
+        form.setFieldsValue(data);
+        if ((data.image_list as any)?.length > 0) {
+          setImages(data.image_list as any[]);
         } else {
-          setImages(response.data.product_info.image_list);
+          setImages((data.product_info as any).image_list as any[]);
         }
       } else {
         message.error('获取SKU信息失败');
@@ -132,7 +139,7 @@ const SkuEdit = () => {
     try {
       const values = await form.validateFields();
       values.images = images.join(',');
-      const response = await productServices.updateProductItem(values);
+      const response = await updateItem(values);
       if (response.code === 200) {
         message.success('更新成功');
         history.push('/sku');
@@ -198,6 +205,7 @@ const SkuEdit = () => {
                   url={url}
                   moveImage={moveImage}
                   handleRemoveImage={handleRemoveImage}
+                  handlePreviewImage={handlePreviewImage}
                 />
               ))}
             </div>

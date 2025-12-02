@@ -1,10 +1,12 @@
-import { permissionApi } from '@/services';
+// permissionApi moved into usePermissions hook
 import { DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons';
 import { PageContainer } from '@ant-design/pro-components';
 import ProTable from '@ant-design/pro-table';
 import { history } from '@umijs/max';
 import { Button, Form, Input, message, Modal, Popconfirm, Select } from 'antd';
 import { useEffect, useState } from 'react';
+// @ts-ignore: temporary shim during migration
+import { usePermissions } from '@/hooks/usePermissions';
 
 const { Option } = Select;
 
@@ -23,40 +25,20 @@ const PermissionManagement = () => {
   const [editingPermission, setEditingPermission] = useState(null);
   const [parentUUID, setParentUUID] = useState(null);
   const [form] = Form.useForm();
-
-  const formatPermissionTree = (permissions) => {
-    const map = {};
-    permissions.forEach((permission) => {
-      map[permission.uuid] = {
-        ...permission,
-        key: permission.uuid,
-        title: permission.name,
-        children: [],
-      };
-    });
-    permissions.forEach((permission) => {
-      if (permission.parent_uuid && map[permission.parent_uuid]) {
-        map[permission.parent_uuid].children.push(map[permission.uuid]);
-      }
-    });
-    return Object.values(map).filter((permission) => !permission.parent_uuid);
-  };
-
-  const fetchPermissions = async () => {
-    setLoading(true);
-    try {
-      const response = await permissionApi.getPermissions();
-      setPermissions(formatPermissionTree(response.data.data));
-    } catch (error) {
-      message.error('获取权限列表失败');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { tree, fetchAll, remove, add, update } = usePermissions();
 
   useEffect(() => {
-    fetchPermissions();
-  }, []);
+    fetchAll();
+  }, [fetchAll]);
+
+  useEffect(() => {
+    setPermissions(tree);
+    setLoading(false);
+  }, [tree]);
+
+  
+
+  // fetchAll 已由 hook 提供
 
   const getParentName = (parentUUID) => {
     const permission = permissions.find((item) => item.uuid === parentUUID);
@@ -81,15 +63,11 @@ const PermissionManagement = () => {
   };
 
   const handleDeletePermission = async (uuid) => {
-    setLoading(true);
     try {
-      await permissionApi.deletePermission({ uuid });
+      await remove(uuid);
       message.success('删除成功');
-      fetchPermissions();
     } catch (error) {
       message.error('删除失败');
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -104,17 +82,13 @@ const PermissionManagement = () => {
       }
 
       if (editingPermission) {
-        await permissionApi.updatePermission({
-          ...editingPermission,
-          ...values,
-        });
+        await update({ ...editingPermission, ...values });
         message.success('更新成功');
       } else {
-        await permissionApi.addPermission(values);
+        await add(values);
         message.success('添加成功');
       }
       setIsModalVisible(false);
-      fetchPermissions();
     } catch (error) {
       message.error('操作失败');
     }

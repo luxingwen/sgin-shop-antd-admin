@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Form, Input, Button, Space, Typography, Row, Col } from 'antd';
 import { PlusOutlined, DeleteOutlined } from '@ant-design/icons';
 
-const { Text } = Typography;
+// using Typography.Text directly in JSX
 
 const ProductVariant = ({variants, setVariants}) => {
 //   const [variants, setVariants] = useState([

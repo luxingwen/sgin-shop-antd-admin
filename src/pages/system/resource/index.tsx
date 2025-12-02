@@ -1,4 +1,4 @@
-import { resourceApi } from '@/services';
+// resourceApi dynamic import where needed
 import {
   FileOutlined,
   FolderOutlined,
@@ -25,6 +25,7 @@ import {
   Upload,
 } from 'antd';
 import { useEffect, useState } from 'react';
+import { useDispatch } from '@umijs/max';
 
 const { Sider, Content } = Layout;
 
@@ -117,14 +118,17 @@ const FileManager = () => {
   const [previewVisible, setPreviewVisible] = useState(false);
   const [previewImage, setPreviewImage] = useState('');
   const [fileType, setFileType] = useState('');
+  const dispatch = useDispatch();
 
   const fetchFiles = async () => {
     try {
-      const response = await resourceApi.getResourceList({
-        path: currentPath,
-        mime_type: fileType,
-      } as any);
-      setFiles(response.data.data);
+      dispatch({
+        type: 'resource/getList',
+        payload: { path: currentPath, mime_type: fileType },
+        callback: (res: any) => {
+          setFiles(res?.data?.data || res?.data || []);
+        },
+      });
     } catch (error) {
       message.error('Failed to load files');
     }
@@ -132,13 +136,14 @@ const FileManager = () => {
 
   const handleDeleteFile = async (uuid) => {
     try {
-      const res = await resourceApi.deleteResource({ uuid });
-      if (res.code === 200) {
-        message.success('File deleted successfully');
-        fetchFiles();
-      } else {
-        message.error(res.message);
-      }
+      dispatch({ type: 'resource/deleteResource', payload: { uuid }, callback: (res: any) => {
+        if (res?.code === 200) {
+          message.success('File deleted successfully');
+          fetchFiles();
+        } else {
+          message.error(res?.message);
+        }
+      }});
     } catch (error) {
       message.error('Failed to delete file');
     }
@@ -151,12 +156,16 @@ const FileManager = () => {
   const handleCreateFolder = async () => {
     try {
       const values = await form.validateFields();
-      await resourceApi.createFolder({ name: values.name, path: currentPath });
-
-      fetchFiles();
-      setIsModalVisible(false);
-      form.resetFields();
-      message.success('Folder created successfully');
+      dispatch({ type: 'resource/createFolder', payload: { name: values.name, path: currentPath }, callback: (res: any) => {
+        if (res?.code === 200) {
+          fetchFiles();
+          setIsModalVisible(false);
+          form.resetFields();
+          message.success('Folder created successfully');
+        } else {
+          message.error(res?.message);
+        }
+      }});
     } catch (error) {
       message.error('Failed to create folder');
     }
@@ -172,22 +181,31 @@ const FileManager = () => {
     setIsModalVisible(true);
   };
 
-  const handleUpload = async ({ file, onSuccess, onError }) => {
-    const formData = new FormData();
-    formData.append('files', file);
-    formData.append('path', currentPath);
+  const handleUpload = ({ file, onSuccess, onError }: any) => {
+    const doUpload = async () => {
+      const formData = new FormData();
+      formData.append('files', file);
+      formData.append('path', currentPath);
 
-    try {
-      await resourceApi.createResource(formData);
+      try {
+        dispatch({ type: 'resource/createResource', payload: formData, callback: (res: any) => {
+          if (res?.code === 200) {
+            fetchFiles();
+            onSuccess?.('OK');
+            message.success('File uploaded successfully');
+          } else {
+            onError?.(res);
+            message.error(res?.message || 'Failed to upload file');
+          }
+        }});
+      } catch (error) {
+        onError?.(error);
+        message.error('Failed to upload file');
+      }
+    };
 
-      fetchFiles();
-
-      onSuccess('OK');
-      message.success('File uploaded successfully');
-    } catch (error) {
-      onError(error);
-      message.error('Failed to upload file');
-    }
+    // fire-and-forget to satisfy Upload.customRequest signature (returns void)
+    void doUpload();
   };
 
   const handleImageClick = (url) => {

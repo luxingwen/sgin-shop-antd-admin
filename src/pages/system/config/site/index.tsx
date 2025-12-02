@@ -1,7 +1,9 @@
-import { configApi, resourceApi } from '@/services';
+// configApi/resourceApi dynamic import where needed
 import { PlusOutlined } from '@ant-design/icons';
 import { Button, Card, Form, Input, message, Select, Upload } from 'antd';
 import { useEffect, useState } from 'react';
+import useResources from '@/hooks/useResources';
+import { useDispatch } from '@umijs/max';
 
 const { Option } = Select;
 
@@ -10,52 +12,37 @@ const SiteConfigPage = () => {
   const [loading, setLoading] = useState(false);
   const [logoFileList, setLogoFileList] = useState([]);
   const [faviconFileList, setFaviconFileList] = useState([]);
+  const { createResource } = useResources();
+  const dispatch = useDispatch();
 
   useEffect(() => {
-    const fetchConfig = async () => {
-      try {
-        setLoading(true);
-        const response = await configApi.getSiteConfig();
-        if (response.code === 200) {
-          form.setFieldsValue(response.data);
-          if (response.data.site_logo) {
-            setLogoFileList([
-              { url: response.data.site_logo, name: 'logo', uid: '-1' },
-            ]);
-          }
-          if (response.data.site_favicon) {
-            setFaviconFileList([
-              { url: response.data.site_favicon, name: 'favicon', uid: '-1' },
-            ]);
-          }
-        } else {
-          message.error('加载站点配置失败');
+    setLoading(true);
+    dispatch({ type: 'config/getSiteConfig', callback: (response: any) => {
+      setLoading(false);
+      if (response?.code === 200) {
+        form.setFieldsValue(response.data);
+        if (response.data.site_logo) {
+          setLogoFileList([{ url: response.data.site_logo, name: 'logo', uid: '-1' }]);
         }
-      } catch (error) {
-        message.error('加载站点配置时出错');
-      } finally {
-        setLoading(false);
+        if (response.data.site_favicon) {
+          setFaviconFileList([{ url: response.data.site_favicon, name: 'favicon', uid: '-1' }]);
+        }
+      } else {
+        message.error('加载站点配置失败');
       }
-    };
-
-    fetchConfig();
-  }, [form]);
+    }});
+  }, [form, dispatch]);
 
   const handleFormSubmit = async (values) => {
-    try {
-      setLoading(true);
-
-      const response = await configApi.updateSiteConfig(values);
-      if (response) {
+    setLoading(true);
+    dispatch({ type: 'config/updateSiteConfig', payload: values, callback: (response: any) => {
+      setLoading(false);
+      if (response?.code === 200) {
         message.success('站点配置更新成功');
       } else {
         message.error('站点配置更新失败');
       }
-    } catch (error) {
-      message.error('更新站点配置时出错');
-    } finally {
-      setLoading(false);
-    }
+    }});
   };
 
   const handleUploadChange = async ({ fileList, field }) => {
@@ -65,13 +52,14 @@ const SiteConfigPage = () => {
       formData.append('files', fileList[0].originFileObj);
       formData.append('path', '/site');
 
-      const response = await resourceApi.createResource(formData);
-      if (response.code === 200 && response.data.length > 0) {
-        form.setFieldsValue({ [field]: '/public' + response.data[0].address });
+      const response = await createResource(formData);
+      const respData = (response?.data as any) || [];
+      if (Array.isArray(respData) && respData.length > 0) {
+        form.setFieldsValue({ [field]: '/public' + respData[0].address });
         if (field === 'site_logo') {
           setLogoFileList([
             {
-              url: '/public' + response.data[0].address,
+              url: '/public' + respData[0].address,
               name: 'logo',
               uid: '-1',
             },
@@ -79,7 +67,7 @@ const SiteConfigPage = () => {
         } else if (field === 'site_favicon') {
           setFaviconFileList([
             {
-              url: '/public' + response.data[0].address,
+              url: '/public' + respData[0].address,
               name: 'favicon',
               uid: '-1',
             },

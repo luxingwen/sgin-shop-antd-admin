@@ -1,8 +1,8 @@
-import { userService } from '@/services';
+// userService dynamic import inside handlers
 import { UploadOutlined } from '@ant-design/icons';
 import { Avatar, Button, Card, Col, Form, Input, message, Row, Upload } from 'antd';
 import { useEffect, useState } from 'react';
-import { useModel } from '@umijs/max';
+import { useModel, useDispatch } from '@umijs/max';
 
 const BasicSettings = () => {
   const [loading, setLoading] = useState(false);
@@ -12,6 +12,7 @@ const BasicSettings = () => {
   const { initialState, setInitialState } = useModel('@@initialState');
   const currentUser = initialState?.currentUser;
   const fetchUserInfo = initialState?.fetchUserInfo;
+  const dispatch = useDispatch();
 
   useEffect(() => {
     if (!currentUser) {
@@ -26,10 +27,10 @@ const BasicSettings = () => {
 
   const handleUpdate = async (values) => {
     setLoading(true);
-    try {
-      const res = await userService.updateUser({ uuid: currentUser.uuid, ...values });
-      if (res.code !== 200) {
-        message.error('更新失败 :' + res.message);
+    dispatch({ type: 'user/update', payload: { uuid: currentUser.uuid, ...values }, callback: (res: any) => {
+      setLoading(false);
+      if (res?.code !== 200) {
+        message.error('更新失败 :' + res?.message);
         return;
       }
       message.success('更新成功');
@@ -38,11 +39,7 @@ const BasicSettings = () => {
           setInitialState((s) => ({ ...s, currentUser: res }));
         }
       });
-    } catch (error) {
-      message.error('更新失败');
-    } finally {
-      setLoading(false);
-    }
+    }});
   };
 
   const uploadProps = {
@@ -53,22 +50,20 @@ const BasicSettings = () => {
       const file = info.file;
       formData.append('file', file);
 
-      try {
-        const res = await userService.updateAvatar(formData); // 确保 updateAvatar 发送请求到服务器的正确端点
-        if (res.code !== 200) {
-          message.error('上传失败 :' + res.message);
-          return;
+        try {
+          dispatch({ type: 'user/updateAvatar', payload: formData, callback: (res: any) => {
+            if (res?.code !== 200) {
+              message.error('上传失败 :' + res?.message);
+              return;
+            }
+            const updatedUser = { ...currentUser, avatar: res.data.avatar };
+            setInitialState((s) => ({ ...s, currentUser: updatedUser }));
+            setAvatarKey(Date.now());
+            message.success('头像上传成功');
+          }});
+        } catch (error) {
+          message.error('上传失败');
         }
-        const updatedUser = {
-          ...currentUser,
-          avatar: res.data.avatar, // 确保 res.data.avatar 是包含完整路径或可访问 URL 的头像 URL
-        };
-        setInitialState((s) => ({ ...s, currentUser: updatedUser }));
-        setAvatarKey(Date.now()); // 强制刷新头像
-        message.success('头像上传成功');
-      } catch (error) {
-        message.error('上传失败');
-      }
     },
   };
 

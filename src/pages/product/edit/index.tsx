@@ -1,7 +1,6 @@
 import HaoUpload from '@/components/HaoUpload';
 import QuillEditor from '@/components/QuillEditor';
 import { CURRENCY, ProductCategory, ProductStatus } from '@/constants/product';
-import { currencyApi, productServices } from '@/services';
 import { Product } from '@/services/types';
 import {
   PageContainer,
@@ -13,6 +12,8 @@ import {
   ProFormText,
 } from '@ant-design/pro-components';
 import { history } from '@umijs/max';
+import { useProducts } from '@/hooks/useProducts';
+import useCurrency from '@/hooks/useCurrency';
 import { Alert, Anchor, Form, Input, message, Typography } from 'antd';
 import { useEffect, useRef } from 'react';
 import { useParams } from 'react-router-dom';
@@ -22,34 +23,34 @@ const ProductEdit = () => {
   const { uuid } = useParams();
 
   const formRef = useRef<ProFormInstance<Product>>();
-  const getProduct = async () => {
-    const result = await productServices.getProduct({ uuid });
-    formRef.current?.setFieldsValue({
-      ...result.data,
-      ...(result?.data?.images && { images: JSON.parse(result.data.images) }),
-    });
+  const { getProduct } = useProducts();
+
+  const loadProduct = async () => {
+    const result = await getProduct(uuid as string);
+    if (result?.data) {
+      formRef.current?.setFieldsValue({
+        ...result.data,
+        ...(result?.data?.images && { images: JSON.parse(result.data.images) }),
+      });
+    }
   };
 
   // 获取货币种类
   const getCurrencies = async () => {
-    const result = await currencyApi.getCurrencyOptions();
-    return result.data.map((item) => ({
-      label: `${item.name}(${item.code})`,
-      value: item.code,
-    }));
+    const { getOptions } = useCurrency();
+    const data = await getOptions();
+    return (data || []).map((item: any) => ({ label: `${item.name}(${item.code})`, value: item.code }));
   };
+
+  const { update } = useProducts();
 
   // 处理编辑提交
   const handleSubmit = async (values: Product) => {
-    console.log(values);
     try {
-      const result = await productServices.updateProduct(values);
-      if (result.code === 200) {
-        message.success('更新成功');
-        history.push('/product/list');
-        return true;
-      }
-      return false;
+      await update(values);
+      message.success('更新成功');
+      history.push('/product/list');
+      return true;
     } catch (err) {
       message.error('更新失败');
       return false;
@@ -57,7 +58,7 @@ const ProductEdit = () => {
   };
 
   useEffect(() => {
-    getProduct();
+    loadProduct();
   }, []);
 
   return (

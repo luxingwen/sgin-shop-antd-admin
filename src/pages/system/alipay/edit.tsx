@@ -1,24 +1,21 @@
-import { paymentApi } from '@/services';
+import { usePaymentConfig } from '@/hooks/usePaymentConfig';
 import { Button, Card, Form, Input, message, Upload } from 'antd';
 import { useEffect, useState } from 'react';
 import { UploadOutlined } from '@ant-design/icons';
-import { PaymentMethod } from '@/services/types';
 
 const AlipayEdit = () => {
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>();
+  // paymentMethod state not required here
+
+  const { getPaymentInfo, updateAlipayConfig } = usePaymentConfig();
 
   useEffect(() => {
-    // Fetch Alipay configuration on component mount
-    const fetchAlipayConfig = async () => {
+    (async () => {
       try {
         setLoading(true);
-        const response = await paymentApi.getPaymentMethodInfo({
-          code: 'alipay',
-        });
+        const response = await getPaymentInfo({ code: 'alipay' });
         if (response.code === 200) {
-          setPaymentMethod(response.data);
           if (response.data.config !== '') {
             const config = JSON.parse(response.data.config);
             form.setFieldsValue(config || {});
@@ -31,10 +28,8 @@ const AlipayEdit = () => {
       } finally {
         setLoading(false);
       }
-    };
-
-    fetchAlipayConfig();
-  }, [form]);
+    })();
+  }, [form, getPaymentInfo]);
 
   const handleFormSubmit = async (values) => {
     try {
@@ -55,7 +50,7 @@ const AlipayEdit = () => {
         formData.append('alipay_root_cert', values.alipay_root_cert[0].originFileObj);
       }
 
-      const response = await paymentApi.updateAlipayConfig(formData);
+      const response = await updateAlipayConfig(formData);
       if (response.code === 200) {
         message.success('Alipay configuration updated successfully');
       } else {

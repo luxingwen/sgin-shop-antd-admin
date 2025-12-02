@@ -1,16 +1,23 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Button, message, Popconfirm, Modal, Form, Input, Switch } from 'antd';
 import ProTable from '@ant-design/pro-table';
-import { teamService } from '@/services';
+// teamService moved into useTeams hook
 import { DeleteOutlined, EditOutlined, PlusOutlined } from '@ant-design/icons';
 import { PageContainer } from '@ant-design/pro-components';
 import { history } from '@umijs/max';
+import { useTeams } from '@/hooks/useTeams';
 
 const TeamManagement = () => {
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [editingTeam, setEditingTeam] = useState(null);
   const [form] = Form.useForm();
   const actionRef = useRef();
+
+  const { list, total, loading, fetchList, remove, add, update } = useTeams();
+
+  useEffect(() => {
+    fetchList({ page: 1, pageSize: 10 });
+  }, [fetchList]);
 
   const handleAddTeam = () => {
     setEditingTeam(null);
@@ -26,13 +33,9 @@ const TeamManagement = () => {
 
   const handleDeleteTeam = async (id) => {
     try {
-      const res = await teamService.deleteTeam({ uuid: id });
-      if (res.code !== 200) {
-        message.error('删除失败 :' + res.message);
-      } else {
-        message.success('删除成功');
-        actionRef.current?.reload();
-      }
+      await remove(id);
+      message.success('删除成功');
+      fetchList({ page: 1, pageSize: 10 });
     } catch (error) {
       message.error('删除失败');
     }
@@ -42,18 +45,14 @@ const TeamManagement = () => {
     try {
       const values = await form.validateFields();
       if (editingTeam) {
-        await teamService.updateTeam({ ...editingTeam, ...values });
+        await update({ ...editingTeam, ...values });
         message.success('更新成功');
       } else {
-        const res = await teamService.addTeam(values);
-        if (res.code === 200) {
-          message.success('添加成功');
-        } else {
-          message.error('添加失败 :' + res.message);
-        }
+        await add(values);
+        message.success('添加成功');
       }
       setIsModalVisible(false);
-      actionRef.current?.reload();
+      fetchList({ page: 1, pageSize: 10 });
     } catch (error) {
       message.error('操作失败');
     }
@@ -109,29 +108,7 @@ const TeamManagement = () => {
     },
   ];
 
-  const queryTeams = async (params, sort, filter) => {
-    try {
-      const response = await teamService.getTeams({ ...params, ...sort, ...filter });
-      if (response.code !== 200) {
-        return {
-          data: [],
-          success: false,
-          total: 0,
-        };
-      }
-      return {
-        data: response.data.data,
-        success: true,
-        total: response.data.total,
-      };
-    } catch (error) {
-      return {
-        data: [],
-        success: false,
-        total: 0,
-      };
-    }
-  };
+  // 使用 useTeams 提供的受控数据（list/total/loading）
 
   return (
     <PageContainer>
@@ -139,11 +116,13 @@ const TeamManagement = () => {
         columns={columns}
         rowKey="uuid"
         actionRef={actionRef}
-        request={queryTeams}
+        dataSource={list}
+        loading={loading}
         pagination={{
-          defaultPageSize: 10,
+          total,
           showSizeChanger: true,
         }}
+        onChange={(pagination) => fetchList({ page: pagination.current, pageSize: pagination.pageSize })}
         search={{
           labelWidth: 'auto',
         }}

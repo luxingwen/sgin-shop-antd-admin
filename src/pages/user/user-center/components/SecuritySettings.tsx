@@ -1,4 +1,4 @@
-import { userService } from '@/services';
+// userService dynamic import inside handlers
 import {
   Button,
   Card,
@@ -13,12 +13,14 @@ import {
   Typography,
 } from 'antd';
 import { useEffect, useState } from 'react';
+import { useDispatch } from '@umijs/max';
 
 const { Title, Paragraph, Text } = Typography;
 
 const SecuritySettings = () => {
   const [securityInfo, setSecurityInfo] = useState(null);
   const [loading, setLoading] = useState(false);
+  const dispatch = useDispatch();
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [isModalVisiblePhone, setIsModalVisiblePhone] = useState(false);
   const [isModalVisibleEmail, setIsModalVisibleEmail] = useState(false);
@@ -29,16 +31,13 @@ const SecuritySettings = () => {
   const [formPhone] = Form.useForm();
   const [formEmail] = Form.useForm();
 
-  const fetchSecurityInfo = async () => {
+  const fetchSecurityInfo = () => {
     setLoading(true);
-    try {
-      const response = await userService.getMyUserInfo();
-      setSecurityInfo(response.data);
-    } catch (error) {
-      message.error('获取安全信息失败');
-    } finally {
+    dispatch({ type: 'user/getMyUserInfo', callback: (res: any) => {
       setLoading(false);
-    }
+      if (res?.code === 200) setSecurityInfo(res.data || {});
+      else message.error('获取安全信息失败');
+    }});
   };
 
   useEffect(() => {
@@ -74,67 +73,44 @@ const SecuritySettings = () => {
       return;
     }
     setLoading(true);
-    try {
-      const res = await userService.updateUser({
-        uuid: securityInfo.uuid,
-        password: values.newPassword,
-        password_strength: passwordStrength,
-      });
-      if (res.code !== 200) {
+    dispatch({ type: 'user/update', payload: { uuid: securityInfo.uuid, password: values.newPassword, password_strength: passwordStrength }, callback: (res: any) => {
+      setLoading(false);
+      if (res?.code !== 200) {
         message.error('密码更新失败');
-
         return;
       }
       message.success('密码更新成功');
       setIsModalVisible(false);
       fetchSecurityInfo();
-    } catch (error) {
-      message.error('密码更新失败');
-    } finally {
-      setLoading(false);
-    }
+    }});
   };
 
   const hanldePhoneChange = async (values) => {
     setLoading(true);
-    try {
-      const res = await userService.updateUser({
-        uuid: securityInfo.uuid,
-        phone: values.phone,
-      } as any);
-      if (res.code !== 200) {
+    dispatch({ type: 'user/update', payload: { uuid: securityInfo.uuid, phone: values.phone }, callback: (res: any) => {
+      setLoading(false);
+      if (res?.code !== 200) {
         message.error('手机号更新失败');
         return;
       }
       message.success('手机号更新成功');
       setIsModalVisiblePhone(false);
       fetchSecurityInfo();
-    } catch (error) {
-      message.error('手机号更新失败');
-    } finally {
-      setLoading(false);
-    }
+    }});
   };
 
   const hanldeEmailChange = async (values) => {
     setLoading(true);
-    try {
-      const res = await userService.updateUser({
-        uuid: securityInfo.uuid,
-        email: values.email,
-      } as any);
-      if (res.code !== 200) {
+    dispatch({ type: 'user/update', payload: { uuid: securityInfo.uuid, email: values.email }, callback: (res: any) => {
+      setLoading(false);
+      if (res?.code !== 200) {
         message.error('邮箱更新失败');
         return;
       }
       message.success('邮箱更新成功');
       setIsModalVisibleEmail(false);
       fetchSecurityInfo();
-    } catch (error) {
-      message.error('邮箱更新失败');
-    } finally {
-      setLoading(false);
-    }
+    }});
   };
 
   const checkPasswordStrength = (value) => {

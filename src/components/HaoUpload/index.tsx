@@ -1,4 +1,4 @@
-import { resourceApi } from '@/services';
+import useResources from '@/hooks/useResources';
 import { Resource } from '@/services/types';
 import getBase64, { FileType } from '@/utils/getBase64';
 import { PlusOutlined } from '@ant-design/icons';
@@ -16,6 +16,7 @@ const HaoUpload = ({ value, onChange }: HaoUploadProps) => {
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewImage, setPreviewImage] = useState('');
   const [loading, setLoading] = useState(false);
+  const { createResource } = useResources();
 
   const handleRemove = (file: UploadFile<any>) => {
     if (value instanceof Array) {
@@ -41,11 +42,12 @@ const HaoUpload = ({ value, onChange }: HaoUploadProps) => {
         if (file.status === 'uploading') {
           const formData = new FormData();
           formData.append('files', file.originFileObj as any);
-          const result = await resourceApi.createResource(formData);
-          if (result.data instanceof Array) {
-            list.push(...result.data);
-          } else {
-            list.push(result.data);
+          const result = await createResource(formData);
+          const data = result?.data;
+          if (data instanceof Array) {
+            list.push(...data);
+          } else if (data) {
+            list.push(data);
           }
         }
       }

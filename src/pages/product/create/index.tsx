@@ -1,10 +1,11 @@
 import QuillEditor from '@/components/QuillEditor';
-import { productServices } from '@/services';
 import getBase64, { FileType } from '@/utils/getBase64';
 import handleUpload from '@/utils/handleUpload';
+import useResources from '@/hooks/useResources';
 import { PlusOutlined } from '@ant-design/icons';
 import { PageContainer } from '@ant-design/pro-components';
 import { history } from '@umijs/max';
+import { useProducts } from '@/hooks/useProducts';
 import type { UploadFile } from 'antd';
 import {
   Alert,
@@ -52,11 +53,14 @@ const ProductForm = () => {
   const [productType, setProductType] = useState('single');
   const [selectedCurrency, setSelectedCurrency] = useState('USD');
 
+  const { create } = useProducts();
+  const { createResource } = useResources();
+
   const handleSubmit = async () => {
     try {
       const values = await form.validateFields();
 
-      const uploadedFileIds = await handleUpload(fileList);
+      const uploadedFileIds = await handleUpload(fileList, createResource);
 
       if (uploadedFileIds.length === 0) {
         return;
@@ -86,13 +90,12 @@ const ProductForm = () => {
         images: uploadedFileIds, // 上传的图片资源 ID
       };
 
-      const result = await productServices.addProduct(productData);
-
-      if (result.code === 200) {
+      try {
+        await create(productData);
         message.success('产品创建成功！');
         history.push('/product/list');
-      } else {
-        message.error(result.message);
+      } catch (e: any) {
+        message.error(e?.message || '创建失败');
       }
     } catch (error) {
       message.error('提交表单失败，请检查输入并重试。');
